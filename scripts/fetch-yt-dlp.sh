@@ -1,17 +1,37 @@
 #!/usr/bin/env bash
 # Downloads the binaries YouTube import runs into node_modules/youtube-dl-exec/bin,
-# which packaging unpacks from the asar. CI runs it with RUNNER_OS and RUNNER_ARCH set.
+# which packaging unpacks from the asar. CI sets RUNNER_OS and RUNNER_ARCH;
+# local runs infer them from uname so `npm install` works without Python 3.11.
 #
 # Both tools are pinned to a version and to the SHA-256 GitHub records for each
 # release asset. To update, bump the version and copy the new digests from the
 # release's asset list.
 set -euo pipefail
 
+if [ -z "${RUNNER_OS:-}" ]; then
+  case "$(uname -s)" in
+    Darwin) RUNNER_OS=macOS ;;
+    Linux) RUNNER_OS=Linux ;;
+    MINGW*|MSYS*|CYGWIN*) RUNNER_OS=Windows ;;
+    *) echo "Cannot detect OS (uname -s=$(uname -s)). Set RUNNER_OS=macOS|Linux|Windows."; exit 1 ;;
+  esac
+fi
+if [ -z "${RUNNER_ARCH:-}" ]; then
+  case "$(uname -m)" in
+    arm64|aarch64) RUNNER_ARCH=ARM64 ;;
+    x86_64|amd64) RUNNER_ARCH=X64 ;;
+    *) echo "Cannot detect arch (uname -m=$(uname -m)). Set RUNNER_ARCH=ARM64|X64."; exit 1 ;;
+  esac
+fi
+
 YTDLP_VERSION=2026.08.19
 DENO_VERSION=v2.9.7
 
 BIN=node_modules/youtube-dl-exec/bin
 mkdir -p "$BIN"
+# youtube-dl-exec may leave a Python zipapp (file) or an extracted package
+# (directory). Replace either with the standalone binary.
+rm -rf "$BIN/yt-dlp" "$BIN/yt-dlp.exe"
 AUTH=()
 if [ -n "${GITHUB_TOKEN:-}" ]; then AUTH=(-H "Authorization: Bearer $GITHUB_TOKEN"); fi
 fetch() { curl -fsSL --proto '=https' ${AUTH[@]+"${AUTH[@]}"} "$1" -o "$2"; }
