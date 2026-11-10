@@ -176,7 +176,7 @@ export interface ElectronAPI {
   loadSession: () => Promise<{ success: boolean; project: any } | null>;
 
   // YouTube operations
-  downloadYoutubeVideo: (url: string) => Promise<{ filePath: string; fileName: string; success: boolean }>;
+  downloadYoutubeVideo: (url: string, options?: { useChromeCookies?: boolean }) => Promise<{ filePath: string; fileName: string; success: boolean }>;
   onYoutubeDownloadProgress: (callback: (data: { percent: number; status: string }) => void) => void;
 
   // Clip operations

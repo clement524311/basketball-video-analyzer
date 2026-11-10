@@ -13,6 +13,7 @@ export const YouTubeImport: React.FC<YouTubeImportProps> = ({
 }) => {
   const { t } = useTranslation();
   const [url, setUrl] = useState("");
+  const [useChromeCookies, setUseChromeCookies] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +36,9 @@ export const YouTubeImport: React.FC<YouTubeImportProps> = ({
     setProgress(0);
 
     try {
-      const result = await window.electronAPI.downloadYoutubeVideo(url.trim());
+      const result = await window.electronAPI.downloadYoutubeVideo(url.trim(), {
+        useChromeCookies,
+      });
       if (result.success) {
         setUrl("");
         onVideoDownloaded(result.filePath);
@@ -44,6 +47,10 @@ export const YouTubeImport: React.FC<YouTubeImportProps> = ({
       const message = err instanceof Error ? err.message : "Unknown error";
       if (message === "INVALID_YOUTUBE_URL") {
         setError(t("app.projects.youtubeInvalidUrl"));
+      } else if (message === "YOUTUBE_PRIVATE") {
+        setError(t("app.projects.youtubePrivateError"));
+      } else if (message === "YOUTUBE_COOKIES_FAILED") {
+        setError(t("app.projects.youtubeCookiesError"));
       } else {
         setError(t("app.projects.youtubeDownloadError"));
       }
@@ -100,6 +107,18 @@ export const YouTubeImport: React.FC<YouTubeImportProps> = ({
           <span className={styles.progressText}>{Math.round(progress)}%</span>
         </div>
       )}
+      <label className={styles.cookieRow}>
+        <input
+          type="checkbox"
+          checked={useChromeCookies}
+          onChange={e => setUseChromeCookies(e.target.checked)}
+          disabled={isDownloading}
+        />
+        <span>
+          {t("app.projects.youtubeUseChromeCookies")}
+          <span className={styles.cookieHint}>{t("app.projects.youtubeUseChromeCookiesHint")}</span>
+        </span>
+      </label>
       {error && <p className={styles.errorText} role="alert">{error}</p>}
       <p className={styles.disclaimer}>{t("app.projects.youtubeDisclaimer")}</p>
     </div>

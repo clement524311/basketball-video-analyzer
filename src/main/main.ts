@@ -56,6 +56,7 @@ import {
 import { MEDIA_SCHEME } from "../shared/media";
 import { buildDrawingGraph, selectClipDrawings, MAX_CLIP_DRAWINGS } from "../shared/clipDrawings";
 import { parseYoutubeUrl } from "./youtubeUrl";
+import { buildYtdlpArgs, classifyYtdlpFailure, YoutubeDownloadOptions } from "./youtubeDownload";
 
 // Handle Squirrel.Windows lifecycle events (install/update/uninstall). On those
 // runs Squirrel launches the app with a --squirrel-* flag; this creates or
@@ -2073,7 +2074,7 @@ const getDenoPath = (): string | null => {
 };
 
 // Download YouTube video using bundled yt-dlp
-ipcMain.handle("download-youtube-video", async (_event, url: string) => {
+ipcMain.handle("download-youtube-video", async (_event, url: string, options?: YoutubeDownloadOptions) => {
   const youtubeUrl = parseYoutubeUrl(url);
   if (!youtubeUrl) {
     throw new Error("INVALID_YOUTUBE_URL");
@@ -2086,25 +2087,23 @@ ipcMain.handle("download-youtube-video", async (_event, url: string) => {
 
   const ytdlpPath = getYtdlpPath();
   const denoPath = getDenoPath();
+  const useChromeCookies = options?.useChromeCookies === true;
 
   return new Promise<{ filePath: string; fileName: string; success: boolean }>((resolve, reject) => {
     let outputFilePath = "";
+    let ytdlpOutput = "";
 
-    const ytdlp = spawn(ytdlpPath, [
-      "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-      "--merge-output-format", "mp4",
-      "-o", path.join(downloadsDir, "%(title)s.%(ext)s"),
-      "--no-playlist",
-      "--newline",
-      // Merging video and audio needs ffmpeg, and most users have none on PATH.
-      ...(ffmpegPath ? ["--ffmpeg-location", ffmpegPath] : []),
-      ...(denoPath ? ["--js-runtimes", `deno:${denoPath}`] : []),
-      "--",
-      youtubeUrl,
-    ]);
+    const ytdlp = spawn(ytdlpPath, buildYtdlpArgs({
+      url: youtubeUrl,
+      outputTemplate: path.join(downloadsDir, "%(title)s.%(ext)s"),
+      ffmpegPath,
+      denoPath,
+      useChromeCookies,
+    }));
 
     ytdlp.stdout.on("data", (data: Buffer) => {
       const line = data.toString();
+      ytdlpOutput += line;
 
       // Parse progress
       const progressMatch = line.match(/\[download\]\s+(\d+(?:\.\d+)?)%/);
@@ -2129,7 +2128,9 @@ ipcMain.handle("download-youtube-video", async (_event, url: string) => {
     });
 
     ytdlp.stderr.on("data", (data: Buffer) => {
-      console.error("yt-dlp stderr:", data.toString());
+      const line = data.toString();
+      ytdlpOutput += line;
+      console.error("yt-dlp stderr:", line);
     });
 
     ytdlp.on("close", (code) => {
@@ -2147,10 +2148,10 @@ ipcMain.handle("download-youtube-video", async (_event, url: string) => {
           const filePath = path.join(downloadsDir, files[0].name);
           resolve({ filePath, fileName: files[0].name, success: true });
         } else {
-          reject(new Error("DOWNLOAD_FAILED"));
+          reject(new Error(classifyYtdlpFailure(ytdlpOutput)));
         }
       } else {
-        reject(new Error("DOWNLOAD_FAILED"));
+        reject(new Error(classifyYtdlpFailure(ytdlpOutput)));
       }
     });
 

@@ -113,6 +113,32 @@
   text-align: right;
 }
 
+.cookieRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
+  cursor: pointer;
+}
+
+.cookieRow input {
+  margin-top: 0.2em;
+  flex-shrink: 0;
+}
+
+.cookieRow input:disabled {
+  cursor: not-allowed;
+}
+
+.cookieHint {
+  display: block;
+  margin-top: 0.15em;
+  color: var(--text-tertiary);
+}
+
 .errorText {
   margin: var(--spacing-sm) 0 0;
   color: var(--color-danger-ink);

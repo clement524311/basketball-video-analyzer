@@ -143,7 +143,7 @@ export interface ElectronAPI {
   loadSession: () => Promise<{ success: boolean; project: any } | null>;
 
   // YouTube operations
-  downloadYoutubeVideo: (url: string) => Promise<{ filePath: string; fileName: string; success: boolean }>;
+  downloadYoutubeVideo: (url: string, options?: { useChromeCookies?: boolean }) => Promise<{ filePath: string; fileName: string; success: boolean }>;
   onYoutubeDownloadProgress: (callback: (data: { percent: number; status: string }) => void) => void;
 
   // Event listeners
@@ -261,8 +261,8 @@ const electronAPI: ElectronAPI = {
   loadSession: () => ipcRenderer.invoke("load-session"),
 
   // YouTube operations
-  downloadYoutubeVideo: (url: string) =>
-    ipcRenderer.invoke("download-youtube-video", url),
+  downloadYoutubeVideo: (url: string, options?: { useChromeCookies?: boolean }) =>
+    ipcRenderer.invoke("download-youtube-video", url, options),
   onYoutubeDownloadProgress: (callback: (data: { percent: number; status: string }) => void) => {
     ipcRenderer.on("youtube-download-progress", (_event, data) => callback(data));
   },
